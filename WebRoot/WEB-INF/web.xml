@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app version="3.0" xmlns="http://java.sun.com/xml/ns/javaee"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://java.sun.com/xml/ns/javaee 
+	http://java.sun.com/xml/ns/javaee/web-app_3_0.xsd">
+	<welcome-file-list>
+		<welcome-file>index.jsp</welcome-file>
+	</welcome-file-list>
+
+	<context-param>
+		<param-name>broker_url</param-name>
+		<param-value>tcp://localhost:61616</param-value>
+	</context-param>
+
+	<context-param>
+		<param-name>target</param-name>
+		<param-value>z.reply</param-value>
+	</context-param>
+
+	<servlet>
+		<servlet-name>processServlet</servlet-name>
+		<servlet-class>priv.z.jms.mq.servlet.ProcessServlet</servlet-class>
+		<init-param>
+			<param-name>nThreads</param-name>
+			<param-value>7</param-value>
+		</init-param>
+		<init-param>
+			<param-name>length</param-name>
+			<param-value>20</param-value>
+		</init-param>
+		<init-param>
+			<param-name>timeMillis</param-name>
+			<param-value>3000</param-value>
+		</init-param>
+		<load-on-startup>1</load-on-startup>
+	</servlet>
+
+	<servlet>
+		<servlet-name>requestServlet</servlet-name>
+		<servlet-class>priv.z.jms.mq.servlet.RequestServlet</servlet-class>
+		<load-on-startup>3</load-on-startup>
+	</servlet>
+	
+	<servlet-mapping>
+		<servlet-name>requestServlet</servlet-name>
+		<url-pattern>/sendMessage</url-pattern>
+	</servlet-mapping>
+</web-app>
