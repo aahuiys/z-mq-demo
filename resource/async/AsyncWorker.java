@@ -1,4 +1,4 @@
-package asyncandcallback;
+package async;
 
 import javax.swing.SwingUtilities;
 

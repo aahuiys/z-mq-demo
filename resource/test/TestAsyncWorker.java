@@ -1,10 +1,10 @@
 package test;
 import java.util.Random;
 
-import asyncandcallback.AsyncWorker;
+import async.AsyncWorker;
 
 
-public class TestAsync {
+public class TestAsyncWorker {
 
 	public static void main(String[] args) {
 		AsyncWorker asyncWorker = new AsyncWorker("construct") {
