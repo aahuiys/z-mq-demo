@@ -7,12 +7,15 @@ import java.util.List;
 import java.util.Map;
 
 import priv.z.jms.mq.thread.lock.ReentrantReadWriteLock;
+import priv.z.jms.mq.thread.semaphore.HandleSemaphore;
 
 public class ReceiveMessages {
 
 	private final ReentrantReadWriteLock lock;
 	
-	private final Map<Integer, Message> messages;
+	private final Map<String, HandleSemaphore> semaphores;
+	
+	private final Map<String, Message> messages;
 	
 	private final List<Message> timeOutMessages;
 	
@@ -20,30 +23,43 @@ public class ReceiveMessages {
 
 	public ReceiveMessages(long timeMillis) {
 		lock = new ReentrantReadWriteLock();
-		messages = new HashMap<Integer, Message>();
+		semaphores = new HashMap<String, HandleSemaphore>();
+		messages = new HashMap<String, Message>();
 		timeOutMessages = new ArrayList<Message>();
 		this.timeMillis = timeMillis;
 	}
 	
-	public void putMessage(Message message) throws InterruptedException {
-		lock.lockWrite();
+	public boolean putMessage(Message message) throws InterruptedException {
+		HandleSemaphore semaphore = getSemaphore(message);
+//		lock.lockWrite();
 		try {
-			messages.put(message.getMessageId(), message);
+			boolean isTimeout = false;
+			synchronized (semaphore) {
+				isTimeout = semaphore.release();
+				if (!isTimeout) messages.put(message.getMessageId(), message);
+			}
+			return isTimeout;
 		} finally {
-			lock.unlockWrite();
+//			lock.unlockWrite();
+			removeSemaphore(message);
 		}
 	}
 	
-	public Message getMessage(int messageId) throws InterruptedException {
+	public Message getMessage(String messageId) throws InterruptedException {
 		Message message = null;
-		lock.lockRead();
+		HandleSemaphore semaphore = getSemaphore(messageId);
+		semaphore.take();
+//		lock.lockRead();
 		try {
-			message = messages.get(messageId);
-			if (message != null && isTimeOut(message)) message = null;
+			synchronized (semaphore) {
+				message = messages.get(messageId);
+			}
+//			if (message != null && isTimeOut(message)) message = null;
+			return message;
 		} finally {
-			lock.unlockRead();
+//			lock.unlockRead();
+			if (message != null) messages.remove(messageId);
 		}
-		return message;
 	}
 	
 	public int msgSize() throws InterruptedException {
@@ -85,5 +101,25 @@ public class ReceiveMessages {
 	private boolean isTimeOut(Message message) {
 		if(message.getReplyTime().getTime() - message.getSendTime().getTime() > timeMillis) return true;
 		return false;
+	}
+	
+	public void setSemaphore(String messageId) {
+		semaphores.put(messageId, new HandleSemaphore(timeMillis));
+	}
+	
+	private HandleSemaphore getSemaphore(Message message) {
+		return getSemaphore(message.getMessageId());
+	}
+	
+	private HandleSemaphore getSemaphore(String messageId) {
+		return semaphores.get(messageId);
+	}
+	
+	private void removeSemaphore(Message message) {
+		removeSemaphore(message.getMessageId());
+	}
+	
+	private void removeSemaphore(String messageId) {
+		semaphores.remove(messageId);
 	}
 }

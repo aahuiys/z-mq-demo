@@ -7,7 +7,7 @@ import java.util.Date;
 @SuppressWarnings("serial")
 public class Message implements Serializable {
 
-	private final int messageId;
+	private final String messageId;
 	
 	private String message = null;
 	
@@ -21,12 +21,14 @@ public class Message implements Serializable {
 
 	public String printInfo() {
 		StringBuffer sb = new StringBuffer();
-		sb.append(messageId).append("===");
-		if(!handle) {
-			sb.append(sdf.format(sendTime));
-		} else {
-			sb.append(sdf.format(replyTime));
+		synchronized (sdf) {
+			if(!handle) {
+				sb.append(sdf.format(sendTime));
+			} else {
+				sb.append(sdf.format(replyTime));
+			}
 		}
+		sb.append("===").append(messageId);
 		sb.append("\n")
 			.append(super.toString())
 			.append("\n")
@@ -35,7 +37,7 @@ public class Message implements Serializable {
 		return sb.toString();
 	}
 	
-	public Message(int messageId) {
+	public Message(String messageId) {
 		this.messageId = messageId;
 	}
 
@@ -71,7 +73,7 @@ public class Message implements Serializable {
 		this.handle = handle;
 	}
 
-	public int getMessageId() {
+	public String getMessageId() {
 		return messageId;
 	}
 }

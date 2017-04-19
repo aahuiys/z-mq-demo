@@ -1,7 +1,6 @@
 package priv.z.jms.mq.thread.runnableimpl;
 
 import java.util.Date;
-import java.util.Random;
 
 import javax.jms.DeliveryMode;
 import javax.jms.JMSException;
@@ -17,6 +16,7 @@ import org.apache.activemq.ActiveMQConnectionFactory;
 
 import priv.z.jms.mq.pojo.Message;
 import priv.z.jms.mq.pojo.ReceiveMessages;
+import priv.z.jms.mq.util.UUIDGenerator;
 
 public class PushMessage {
 
@@ -45,16 +45,15 @@ public class PushMessage {
 			Queue queue = session.createQueue(target);
 			QueueSender sender = session.createSender(queue);
 			sender.setDeliveryMode(DeliveryMode.NON_PERSISTENT);
-			int messageId = Integer.valueOf(requestString);
+			String messageId = UUIDGenerator.getUUID();
 			Message msg = new Message(messageId);
 			requestString = "[QUEUE]Send No." + requestString + " message.";
 			msg.setMessage(requestString);
 			msg.setSendTime(new Date());
+			responseMessages.setSemaphore(messageId);
 			sender.send(session.createObjectMessage(msg));
-			
-			System.out.println("[send]\n" + msg.printInfo());
-			Thread.sleep(new Random().nextInt(500));
-			
+			session.close();
+//			System.out.println("[send]\n" + msg.printInfo());
 			message = responseMessages.getMessage(messageId);
 		} catch (JMSException e) {
 			e.printStackTrace();

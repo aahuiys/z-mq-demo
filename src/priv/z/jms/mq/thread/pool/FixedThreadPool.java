@@ -53,7 +53,8 @@ public class FixedThreadPool {
 				} catch (RuntimeException e) {
 					// TODO Auto-generated catch block
 					// You might want to log something here
-					System.out.println("Catch RuntimeException: " + e.getMessage());
+					System.out.println("Catch RuntimeException: " + e.getClass().getSimpleName());
+					e.printStackTrace();
 				}
 			}
 		}

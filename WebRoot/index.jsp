@@ -46,6 +46,23 @@ String basePath = request.getScheme()+"://"+request.getServerName()+":"+request.
 			gel("sendinfo").innerHTML = "";
 			gel("showinfo").innerHTML = "";
 		}
+		
+		function getRequest() {
+			var count = gel("id").value;
+			var xmlHttp = createXmlHttp();
+			var url = "<%=basePath%>sendMessage?count=" + count;
+			xmlHttp.open("GET", url, true);
+			//GET方式设置浏览器不从缓存获取数据
+			xmlHttp.setRequestHeader("If-Modified-Since", 0);
+			xmlHttp.onreadystatechange = function() {
+				if(xmlHttp.readyState == 4 && xmlHttp.status == 200) {
+					var res = xmlHttp.responseText;
+					gel("showinfo").innerHTML = res + "<br />" + gel("showinfo").innerHTML;
+				}
+			};
+			xmlHttp.send(null);
+			gel("sendinfo").innerHTML = "Apply " + count + " message, please wait." + "<br />" + gel("sendinfo").innerHTML;
+		}
 	</script>
   </head>
   
@@ -53,7 +70,8 @@ String basePath = request.getScheme()+"://"+request.getServerName()+":"+request.
   	<div>
   		<input type="text" id="id" value="1000" />
   		<input type="button" id="send" value="POST" />
-  		<input type="button"  value="CLEAR" onclick="clearInfo()" /><br />
+  		<input type="button" value="GET" onclick="getRequest()" />
+  		<input type="button" value="CLEAR" onclick="clearInfo()" />
   	</div>
   	<div style="margin: auto;">
   		<div id="sendinfo" style="float: left; width: 25%; padding-left: 25%;"></div>

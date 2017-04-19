@@ -37,7 +37,7 @@ public class QueueSender {
 //			mapMessage.setLong("time", System.currentTimeMillis());
 //			System.out.println(mapMessage);
 //			sender.send(mapMessage);
-			Message msg = new Message(id);
+			Message msg = new Message(String.valueOf(id));
 			msg.setMessage(message);
 			msg.setSendTime(new Date());
 			System.out.println("[send]\n" + msg);
