@@ -1,6 +1,8 @@
 package priv.z.jms.mq.servlet;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 import javax.jms.JMSException;
 import javax.servlet.ServletException;
@@ -10,6 +12,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import priv.z.jms.mq.pojo.Message;
 import priv.z.jms.mq.pojo.ReceiveMessages;
+import priv.z.jms.mq.pojo.RequestManager;
 import priv.z.jms.mq.thread.runnableimpl.PushMessage;
 import priv.z.jms.mq.util.UUIDGenerator;
 
@@ -20,6 +23,8 @@ public class RequestServlet extends HttpServlet {
 	
 	private PushMessage pushMessage;
 	
+	private RequestManager manager;
+	
 	@Override
 	public void init() throws ServletException {
 		responseMessages = (ReceiveMessages) getServletContext().getAttribute("responseMessages");
@@ -28,6 +33,7 @@ public class RequestServlet extends HttpServlet {
 		} catch (JMSException e) {
 			e.printStackTrace();
 		}
+		manager = new RequestManager();
 	}
 	
 //	@Override
@@ -61,69 +67,97 @@ public class RequestServlet extends HttpServlet {
 	@Override
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
-		final CountInfo ok = new CountInfo();
-		final CountInfo err = new CountInfo();
-		final CountInfo timeout = new CountInfo();
 		response.setCharacterEncoding("UTF-8");
-		int count = Integer.valueOf(request.getParameterValues("count")[0]);
-		Thread[] threads = new Thread[count];
-		for (int i = 0; i < count; i++) {
-			final String requestString = UUIDGenerator.getUUID();
-			try {
-				Thread.sleep(1);
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
-			Thread thread = new Thread(new Runnable() {
-				
-				@Override
-				public void run() {
-					String responseString = "Request Faild: [" + requestString + "]-Timeout.\n";
-					Message message = pushMessage.request(requestString);
-					if (message != null && ("[QUEUE]Reply No." + requestString + " message.").equals(message.getMessage())) {
-						message.setHandle(true);
-//						responseString = message.getMessage();
-						ok.add();
-//						System.out.println("[receive]\n" + message.printInfo());
+		String action = request.getParameterValues("action")[0];
+		final List<Thread> threads = new ArrayList<Thread>();
+		final RequestManager.Request req = manager.new Request() {
+			
+			@Override
+			public void run() {
+				String requestString = UUIDGenerator.getUUID();
+				String responseString = "Request Faild: [" + requestString + "]-Timeout.\n";
+				Message message = pushMessage.request(requestString);
+				if (message != null && ("[QUEUE]Reply No." + requestString + " message.").equals(message.getMessage())) {
+//					message.setHandle(true);
+//					responseString = message.getMessage();
+					ok.add();
+//					System.out.println("[receive]\n" + message.printInfo());
+				} else {
+					if (message != null) {
+						responseString = "Request Faild: [" + requestString + "]-ID Error!\n";
+						err.add();
+						System.err.println(responseString);
 					} else {
-						if (message != null) {
-							responseString = "Request Faild: [" + requestString + "]-ID Error!\n";
-							err.add();
-							System.err.println(responseString);
-						} else {
-							timeout.add();
-						}
+						timeout.add();
 					}
 				}
-			});
-			thread.start();
-			threads[i] = thread;
-		}
-		for (Thread thread : threads) {
-			try {
-				thread.join();
-			} catch (InterruptedException e) {
-				e.printStackTrace();
+				synchronized (threads) {
+					threads.remove(Thread.currentThread());
+				}
 			}
+		};
+		if (action.equals("GET")) {
+			if (!manager.request(req)) response.getWriter().print(colorTag("Over the maximum numbers of requests.", "blue"));
+			else {
+				new Thread(new Runnable() {
+					
+					@Override
+					public void run() {
+						while (!manager.isStop()) {
+							try {
+								Thread.sleep(10);
+							} catch (InterruptedException e) {
+								e.printStackTrace();
+							}
+							Thread thread = new Thread(req);
+							threads.add(thread);
+							thread.start();
+						}
+						List<Thread> t = new ArrayList<Thread>();
+						synchronized (threads) {
+							for (Thread thread : threads) t.add(thread);
+						}
+						try {
+							for (Thread thread : t) thread.join();
+							manager.release();
+						} catch (InterruptedException e) {
+							e.printStackTrace();
+						}
+					}
+				}).start();
+				response.getWriter().print(colorTag("Start a new request.", "green"));
+			}
+		} else if (action.equals("STATUS")) {
+			if (!manager.isStop()) {
+				StringBuffer sb = new StringBuffer();
+				for (RequestManager.Request r : manager.getRequests()) {
+					sb.append(colorTag(r.ok.toString(), "green")).append(" | ")
+						.append(colorTag(r.err.toString(), "red")).append(" | ")
+						.append(colorTag(r.timeout.toString(), "blue")).append("<br />");
+				}
+				response.getWriter().print(sb.toString());
+			} else response.getWriter().print(colorTag("No request or In preparation.", "blue"));
+		} else if (action.equals("STOP")) {
+			if (!manager.isStop() && manager.stop()) {
+				try {
+					manager.end();
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+				StringBuffer sb = new StringBuffer();
+				sb.append(colorTag("All requests has been stopped.<br />", "green"));
+				for (RequestManager.Request r : manager.getRequests()) {
+					sb.append(colorTag(r.ok.toString(), "green")).append(" | ")
+					.append(colorTag(r.err.toString(), "red")).append(" | ")
+					.append(colorTag(r.timeout.toString(), "blue")).append("<br />");
+				}
+				response.getWriter().print(sb.toString());
+				manager.ready();
+			} else response.getWriter().print(colorTag("No request or In preparation.", "blue"));
 		}
-		response.getWriter().print(colorTag(ok.toString(), "green") + " | " + colorTag(err.toString(), "red") + " | " + colorTag(timeout.toString(), "blue"));
 	}
 	
 	private String colorTag(String s, String color) {
 		return "<span style=\"color: " + color + ";\">" + s + "</span>";
-	}
-	
-	private class CountInfo {
-		
-		private int n = 0;
-		
-		private synchronized void add() {
-			n++;
-		}
-		
-		@Override
-		public String toString() {
-			return String.valueOf(n);
-		}
 	}
 }

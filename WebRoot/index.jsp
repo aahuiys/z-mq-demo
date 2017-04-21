@@ -22,23 +22,21 @@ String basePath = request.getScheme()+"://"+request.getServerName()+":"+request.
 	<script type="text/javascript">
 		window.onload = function() {
 			gel("send").onclick = function() {
+				var xmlHttp = createXmlHttp();
+				var url = "<%=basePath%>sendMessage";
+				xmlHttp.open("POST", url, true);
+				//POST方式为请求报文头中添加Content-Type来设置参数的编码组织方式
+				xmlHttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+				xmlHttp.onreadystatechange = function() {
+					if(xmlHttp.readyState == 4 && xmlHttp.status == 200) {
+						var res = xmlHttp.responseText;
+						gel("showinfo").innerHTML = res + "<br />" + gel("showinfo").innerHTML;
+					}
+				};
 				var count = gel("id").value;
-<%--				for (var i = 0; i < count; i++) {--%>
-					var xmlHttp = createXmlHttp();
-					var url = "<%=basePath%>sendMessage";
-					xmlHttp.open("POST", url, true);
-					//POST方式为请求报文头中添加Content-Type来设置参数的编码组织方式
-					xmlHttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-					xmlHttp.onreadystatechange = function() {
-						if(xmlHttp.readyState == 4 && xmlHttp.status == 200) {
-							var res = xmlHttp.responseText;
-							gel("showinfo").innerHTML = res + "<br />" + gel("showinfo").innerHTML;
-						}
-					};
-					var id = Math.floor(Math.random() * count) + 1;
-					xmlHttp.send("id=" + id);
-					gel("sendinfo").innerHTML = "[QUEUE]Send No." + id + " message." + "<br />" + gel("sendinfo").innerHTML;
-<%--				}--%>
+				var id = Math.floor(Math.random() * count) + 1;
+				xmlHttp.send("id=" + id);
+				gel("sendinfo").innerHTML = "[QUEUE]Send No." + id + " message." + "<br />" + gel("sendinfo").innerHTML;
 			};
 		};
 		
@@ -47,10 +45,10 @@ String basePath = request.getScheme()+"://"+request.getServerName()+":"+request.
 			gel("showinfo").innerHTML = "";
 		}
 		
-		function getRequest() {
-			var count = gel("id").value;
+		function getRequest(action) {
+			if (action == "STOP" && !confirm("Do you want stop?")) return;
 			var xmlHttp = createXmlHttp();
-			var url = "<%=basePath%>sendMessage?count=" + count;
+			var url = "<%=basePath%>sendMessage?action=" + action;
 			xmlHttp.open("GET", url, true);
 			//GET方式设置浏览器不从缓存获取数据
 			xmlHttp.setRequestHeader("If-Modified-Since", 0);
@@ -61,17 +59,23 @@ String basePath = request.getScheme()+"://"+request.getServerName()+":"+request.
 				}
 			};
 			xmlHttp.send(null);
-			gel("sendinfo").innerHTML = "Apply " + count + " message, please wait." + "<br />" + gel("sendinfo").innerHTML;
+			if (action == "GET") gel("sendinfo").innerHTML = "Send a request. " + "<br />" + gel("sendinfo").innerHTML;
+			else if (action == "STATUS") gel("sendinfo").innerHTML = "Get the current result." + "<br />" + gel("sendinfo").innerHTML;
+			else gel("sendinfo").innerHTML = "Stop all test thread! " + "<br />" + gel("sendinfo").innerHTML;
 		}
 	</script>
   </head>
   
   <body align="center">
   	<div>
+  		<input type="button" value="CLEAR" onclick="clearInfo()" /><br />
+  		Single Test: 
   		<input type="text" id="id" value="1000" />
-  		<input type="button" id="send" value="POST" />
-  		<input type="button" value="GET" onclick="getRequest()" />
-  		<input type="button" value="CLEAR" onclick="clearInfo()" />
+  		<input type="button" id="send" value="POST" /><br />
+  		Long-term Test: 
+  		<input type="button" value="GET" onclick="getRequest('GET')" />
+  		<input type="button" value="STATUS" onclick="getRequest('STATUS')" />
+  		<input type="button" value="STOP" onclick="getRequest('STOP')" />
   	</div>
   	<div style="margin: auto;">
   		<div id="sendinfo" style="float: left; width: 25%; padding-left: 25%;"></div>
