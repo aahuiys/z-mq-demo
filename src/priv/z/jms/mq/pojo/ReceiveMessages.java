@@ -16,7 +16,9 @@ public class ReceiveMessages {
 
 	private final static Log logger = LogFactory.getLog(ReceiveMessages.class);
 	
-	private final ReentrantReadWriteLock lock;
+	private final ReentrantReadWriteLock semaphoreLock;
+	
+	private final ReentrantReadWriteLock messageLock;
 	
 	private final Map<String, HandleSemaphore> semaphores;
 	
@@ -27,7 +29,8 @@ public class ReceiveMessages {
 	private final long timeMillis;
 
 	public ReceiveMessages(long timeMillis) {
-		lock = new ReentrantReadWriteLock();
+		semaphoreLock = new ReentrantReadWriteLock();
+		messageLock = new ReentrantReadWriteLock();
 		semaphores = new HashMap<String, HandleSemaphore>();
 		messages = new HashMap<String, Message>();
 		timeOutMessages = new ArrayList<Message>();
@@ -36,61 +39,71 @@ public class ReceiveMessages {
 	}
 	
 	public boolean putMessage(Message message) throws InterruptedException {
-		boolean isTimeout = false;
-		HandleSemaphore semaphore = getSemaphore(message);
-//		lock.lockWrite();
+		boolean isTimeout = true;
 		try {
+			HandleSemaphore semaphore = getSemaphore(message);
 			synchronized (semaphore) {
 				isTimeout = semaphore.release();
-				if (!isTimeout) messages.put(message.getMessageId(), message);
+				if (!isTimeout) {
+					messageLock.lockWrite();
+					try {
+						messages.put(message.getMessageId(), message);
+					} finally {
+						messageLock.unlockWrite();
+					}
+				}
 			}
+			removeSemaphore(message);
 		} catch (RuntimeException e) {
 			logger.error("PutMessage not find semaphore: " + message.getMessageId());
-		} finally {
-//			lock.unlockWrite();
-			removeSemaphore(message);
 		}
 		return isTimeout;
 	}
 	
 	public Message getMessage(String messageId) throws InterruptedException {
 		Message message = null;
-		HandleSemaphore semaphore = getSemaphore(messageId);
-//		lock.lockRead();
 		try {
-			semaphore.take();
-//			synchronized (semaphore) {
+			getSemaphore(messageId).take();
+			messageLock.lockRead();
+			try {
 				message = messages.get(messageId);
-//			}
+			} finally {
+				messageLock.unlockRead();
+			}
+			if (message != null) {
+				messageLock.lockWrite();
+				try {
+					messages.remove(messageId);
+				} finally {
+					messageLock.unlockWrite();
+				}
+			}
 		} catch (RuntimeException e) {
 			logger.error("GetMessage not find semaphore: " + messageId);
-		} finally {
-//			lock.unlockRead();
-			if (message != null) messages.remove(messageId);
 		}
 		return message;
 	}
 	
 	public int msgSize() throws InterruptedException {
-		lock.lockRead();
+		messageLock.lockRead();
 		try {
 			return messages.size();
 		} finally {
-			lock.unlockRead();
+			messageLock.unlockRead();
 		}
 	}
 	
 	public int outSize() throws InterruptedException {
-		lock.lockRead();
+		messageLock.lockRead();
 		try {
 			return timeOutMessages.size();
 		} finally {
-			lock.unlockRead();
+			messageLock.unlockRead();
 		}
 	}
 	
 	public void checkMessages() throws InterruptedException {
-		lock.lockRead();
+		messageLock.lockRead();
 		try {
 			Iterator<Message> it = messages.values().iterator();
 			while (it.hasNext()) {
@@ -103,7 +116,7 @@ public class ReceiveMessages {
 				}
 			}
 		} finally {
-			lock.unlockRead();
+			messageLock.unlockRead();
 		}
 	}
 	
@@ -112,24 +125,39 @@ public class ReceiveMessages {
 		return false;
 	}
 	
-	public void setSemaphore(String messageId) {
-		semaphores.put(messageId, new HandleSemaphore(timeMillis));
-		logger.debug("Set the send semaphore: " + messageId);
+	public void setSemaphore(String messageId) throws InterruptedException {
+		semaphoreLock.lockWrite();
+		try {
+			semaphores.put(messageId, new HandleSemaphore(timeMillis));
+			logger.debug("Set the send semaphore: " + messageId);
+		} finally {
+			semaphoreLock.unlockWrite();
+		}
 	}
 	
-	private HandleSemaphore getSemaphore(Message message) {
+	private HandleSemaphore getSemaphore(Message message) throws InterruptedException {
 		return getSemaphore(message.getMessageId());
 	}
 	
-	private HandleSemaphore getSemaphore(String messageId) {
-		return semaphores.get(messageId);
+	private HandleSemaphore getSemaphore(String messageId) throws InterruptedException {
+		semaphoreLock.lockRead();
+		try {
+			return semaphores.get(messageId);
+		} finally {
+			semaphoreLock.unlockRead();
+		}
 	}
 	
-	private void removeSemaphore(Message message) {
+	private void removeSemaphore(Message message) throws InterruptedException {
 		removeSemaphore(message.getMessageId());
 	}
 	
-	private void removeSemaphore(String messageId) {
-		semaphores.remove(messageId);
+	private void removeSemaphore(String messageId) throws InterruptedException {
+		semaphoreLock.lockWrite();
+		try {
+			semaphores.remove(messageId);
+		} finally {
+			semaphoreLock.unlockWrite();
+		}
 	}
 }

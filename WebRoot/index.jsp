@@ -46,6 +46,7 @@ String basePath = request.getScheme()+"://"+request.getServerName()+":"+request.
 		}
 		
 		function getRequest(action) {
+			if (action == "STATUS" && !autoRefresh) return;
 			if (action == "STOP" && !confirm("Do you want stop?")) return;
 			var xmlHttp = createXmlHttp();
 			var url = "<%=basePath%>sendMessage?action=" + action;
@@ -59,10 +60,24 @@ String basePath = request.getScheme()+"://"+request.getServerName()+":"+request.
 				}
 			};
 			xmlHttp.send(null);
-			if (action == "GET") gel("sendinfo").innerHTML = "Send a request. " + "<br />" + gel("sendinfo").innerHTML;
-			else if (action == "STATUS") gel("sendinfo").innerHTML = "Get the current result." + "<br />" + gel("sendinfo").innerHTML;
-			else gel("sendinfo").innerHTML = "Stop all test thread! " + "<br />" + gel("sendinfo").innerHTML;
+			if (action == "GET") {
+				gel("sendinfo").innerHTML = "Send a request. " + "<br />" + gel("sendinfo").innerHTML;
+				autoRefresh = true;
+			} else if (action == "STATUS") {
+				gel("sendinfo").innerHTML = "Get the current result." + "<br />" + gel("sendinfo").innerHTML;
+			} else {
+				gel("sendinfo").innerHTML = "Stop all test thread! " + "<br />" + gel("sendinfo").innerHTML;
+				autoRefresh = false;
+			}
 		}
+		
+		var autoRefresh = false;
+		
+		function switchRefresh() {
+			autoRefresh = !autoRefresh;
+		}
+		
+		setInterval("getRequest('STATUS')", 1000);
 	</script>
   </head>
   
@@ -74,7 +89,8 @@ String basePath = request.getScheme()+"://"+request.getServerName()+":"+request.
   		<input type="button" id="send" value="POST" /><br />
   		Long-term Test: 
   		<input type="button" value="GET" onclick="getRequest('GET')" />
-  		<input type="button" value="STATUS" onclick="getRequest('STATUS')" />
+<%--  		<input type="button" value="STATUS" onclick="getRequest('STATUS')" />--%>
+  		<input type="button" value="SWITCH" onclick="switchRefresh()" />
   		<input type="button" value="STOP" onclick="getRequest('STOP')" />
   	</div>
   	<div style="margin: auto;">
