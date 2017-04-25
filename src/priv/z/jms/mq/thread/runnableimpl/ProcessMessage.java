@@ -23,7 +23,6 @@ public class ProcessMessage implements Runnable {
 	public void run() {
 		try {
 			Message msg = (Message) ((ObjectMessage) message).getObject();
-//			Thread.sleep(1);
 			msg.setMessage(msg.getMessage().replaceFirst("Send", "Reply"));
 			msg.setReplyTime(new Date());
 			responseMessages.putMessage(msg);

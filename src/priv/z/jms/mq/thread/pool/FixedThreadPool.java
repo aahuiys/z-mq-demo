@@ -1,9 +1,14 @@
 package priv.z.jms.mq.thread.pool;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
 import priv.z.jms.mq.thread.queue.BlockingLinkedQueue;
 
 public class FixedThreadPool {
 
+	private final static Log logger = LogFactory.getLog(FixedThreadPool.class);
+	
 	private final int nThreads;
 	
 	private final int length;
@@ -21,13 +26,13 @@ public class FixedThreadPool {
 			theads[i] = new PoolWorker("TestThread-[" + (i + 1) + "]");
 			theads[i].start();
 		}
+		logger.info("The " + this.getClass().getSimpleName() + " has been created.");
 	}
 	
 	public void execute(Runnable r) {
 		try {
 			queue.enqueue(r);
 		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
@@ -40,21 +45,17 @@ public class FixedThreadPool {
 		
 		@Override
 		public void run() {
-			// TODO Auto-generated method stub
 			Runnable r;
 			while (true) {
 				try {
 					r = queue.dequeue();
 					r.run();
 				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				// If we don't catch RuntimeException, the pool could leak threads
 				} catch (RuntimeException e) {
-					// TODO Auto-generated catch block
 					// You might want to log something here
-					System.out.println("Catch RuntimeException: " + e.getClass().getSimpleName());
-					e.printStackTrace();
+					logger.error("Catch RuntimeException: " + e.getClass().getSimpleName(), e);
 				}
 			}
 		}

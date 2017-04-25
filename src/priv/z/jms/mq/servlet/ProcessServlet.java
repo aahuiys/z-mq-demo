@@ -5,6 +5,9 @@ import javax.jms.Message;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
 import priv.z.jms.mq.pojo.ReceiveMessages;
 import priv.z.jms.mq.thread.pool.FixedThreadPool;
 import priv.z.jms.mq.thread.runnableimpl.ProcessMessage;
@@ -13,6 +16,8 @@ import priv.z.jms.mq.thread.runnableimpl.PullMessage;
 @SuppressWarnings("serial")
 public class ProcessServlet extends HttpServlet {
 
+	private final static Log logger = LogFactory.getLog(ProcessServlet.class);
+	
 	private FixedThreadPool threadPool;
 	
 	private ReceiveMessages responseMessages;
@@ -33,5 +38,6 @@ public class ProcessServlet extends HttpServlet {
 		} catch (JMSException e) {
 			e.printStackTrace();
 		}
+		logger.info(this.getClass().getSimpleName() + " Init Complete.");
 	}
 }

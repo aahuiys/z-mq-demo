@@ -13,6 +13,8 @@ import javax.jms.Session;
 
 import org.apache.activemq.ActiveMQConnection;
 import org.apache.activemq.ActiveMQConnectionFactory;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 import priv.z.jms.mq.pojo.Message;
 import priv.z.jms.mq.pojo.ReceiveMessages;
@@ -20,6 +22,8 @@ import priv.z.jms.mq.util.UUIDGenerator;
 
 public class PushMessage {
 
+	private final static Log logger = LogFactory.getLog(PushMessage.class);
+	
 	private final String broker_url;
 	
 	private final String target;
@@ -35,6 +39,7 @@ public class PushMessage {
 		QueueConnectionFactory factory = new ActiveMQConnectionFactory(ActiveMQConnection.DEFAULT_USER, ActiveMQConnection.DEFAULT_PASSWORD, this.broker_url);
 		connection = factory.createQueueConnection();
 		connection.start();
+		logger.info("PushMessage is connected to ActiveMQ.");
 	}
 	
 	public Message request(String requestString) {

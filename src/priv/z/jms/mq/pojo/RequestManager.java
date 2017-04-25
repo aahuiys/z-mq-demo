@@ -1,7 +1,12 @@
 package priv.z.jms.mq.pojo;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
 public class RequestManager {
 
+	private final static Log logger = LogFactory.getLog(RequestManager.class);
+	
 	private int size = 0;
 	
 	private int maximum = 3;
@@ -40,6 +45,7 @@ public class RequestManager {
 	
 	public synchronized boolean stop() {
 		if (!isStop) {
+			logger.info("Set stop, wait for all requests end.");
 			isStop = true;
 			isReady = false;
 			return true;
@@ -48,11 +54,15 @@ public class RequestManager {
 	}
 	
 	public synchronized void end() throws InterruptedException {
-		while (semaphore != 0) wait();
+		int count = 0;
+		while (semaphore != -1 && count++ < 3) wait(5000);
+		if (semaphore == -1) logger.info("All requests ended successfully.");
+		else logger.error((semaphore + 1) + " request(s) can not be released.");
 	}
 	
 	public synchronized void release() throws InterruptedException {
-		if (--semaphore == 0) notify();
+		if (semaphore-- == 0) notify();
+		logger.info("A request ended successfully.");
 	}
 	
 	public synchronized  void ready() {

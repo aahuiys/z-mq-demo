@@ -1,6 +1,5 @@
 package priv.z.jms.mq.thread.runnableimpl;
 
-
 import javax.jms.JMSException;
 import javax.jms.MessageListener;
 import javax.jms.Queue;
@@ -12,9 +11,13 @@ import javax.jms.Session;
 
 import org.apache.activemq.ActiveMQConnection;
 import org.apache.activemq.ActiveMQConnectionFactory;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 public abstract class PullMessage implements Runnable, MessageListener {
 
+	private final static Log logger = LogFactory.getLog(PullMessage.class);
+	
 	private final String broker_url;
 	
 	private final String target;
@@ -27,6 +30,7 @@ public abstract class PullMessage implements Runnable, MessageListener {
 		QueueConnectionFactory factory = new ActiveMQConnectionFactory(ActiveMQConnection.DEFAULT_USER, ActiveMQConnection.DEFAULT_PASSWORD, this.broker_url);
 		connection = factory.createQueueConnection();
 		connection.start();
+		logger.info("PullMessage is connected to ActiveMQ.");
 	}
 
 	@Override
@@ -37,6 +41,7 @@ public abstract class PullMessage implements Runnable, MessageListener {
 			Queue queue = session.createQueue(target);
 			QueueReceiver receiver = session.createReceiver(queue);
 			receiver.setMessageListener(this);
+			logger.info("MessageListener is registered.");
 		} catch (JMSException e) {
 			e.printStackTrace();
 		}

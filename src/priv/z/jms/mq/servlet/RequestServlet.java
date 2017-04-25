@@ -10,6 +10,9 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
 import priv.z.jms.mq.pojo.Message;
 import priv.z.jms.mq.pojo.ReceiveMessages;
 import priv.z.jms.mq.pojo.RequestManager;
@@ -19,6 +22,8 @@ import priv.z.jms.mq.util.UUIDGenerator;
 @SuppressWarnings("serial")
 public class RequestServlet extends HttpServlet {
 
+	private final static Log logger = LogFactory.getLog(RequestServlet.class);
+	
 	private ReceiveMessages responseMessages;
 	
 	private PushMessage pushMessage;
@@ -34,6 +39,7 @@ public class RequestServlet extends HttpServlet {
 			e.printStackTrace();
 		}
 		manager = new RequestManager();
+		logger.info(this.getClass().getSimpleName() + " Init Complete.");
 	}
 	
 //	@Override
@@ -50,16 +56,18 @@ public class RequestServlet extends HttpServlet {
 		String color = "blue";
 		Message message = pushMessage.request(requestString);
 		if (message != null && ("[QUEUE]Reply No." + requestString + " message.").equals(message.getMessage())) {
-			message.setHandle(true);
+//			message.setHandle(true);
 			responseString = message.getMessage();
 			color = "green";
-			System.out.println("[receive]\n" + message.printInfo());
+//			System.out.println("[receive]\n" + message.printInfo());
 		} else {
 			if (message != null) {
 				responseString = "Request Faild: [" + requestString + "]-ID Error!\n";
 				color = "red";
+				logger.error(responseString);
+			} else {
+				logger.debug(responseString);
 			}
-			System.err.println(responseString);
 		}
 		response.getWriter().print(colorTag(responseString, color));
 	}
@@ -86,9 +94,10 @@ public class RequestServlet extends HttpServlet {
 					if (message != null) {
 						responseString = "Request Faild: [" + requestString + "]-ID Error!\n";
 						err.add();
-						System.err.println(responseString);
+						logger.error(responseString);
 					} else {
 						timeout.add();
+						logger.debug(responseString);
 					}
 				}
 				synchronized (threads) {
@@ -99,6 +108,7 @@ public class RequestServlet extends HttpServlet {
 		if (action.equals("GET")) {
 			if (!manager.request(req)) response.getWriter().print(colorTag("Over the maximum numbers of requests.", "blue"));
 			else {
+				logger.info("Start a new request.");
 				new Thread(new Runnable() {
 					
 					@Override

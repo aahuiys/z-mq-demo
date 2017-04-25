@@ -6,11 +6,16 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
 import priv.z.jms.mq.thread.lock.ReentrantReadWriteLock;
 import priv.z.jms.mq.thread.semaphore.HandleSemaphore;
 
 public class ReceiveMessages {
 
+	private final static Log logger = LogFactory.getLog(ReceiveMessages.class);
+	
 	private final ReentrantReadWriteLock lock;
 	
 	private final Map<String, HandleSemaphore> semaphores;
@@ -27,39 +32,43 @@ public class ReceiveMessages {
 		messages = new HashMap<String, Message>();
 		timeOutMessages = new ArrayList<Message>();
 		this.timeMillis = timeMillis;
+		logger.info(this.getClass().getSimpleName() + " Init Complete.");
 	}
 	
 	public boolean putMessage(Message message) throws InterruptedException {
+		boolean isTimeout = false;
 		HandleSemaphore semaphore = getSemaphore(message);
 //		lock.lockWrite();
 		try {
-			boolean isTimeout = false;
 			synchronized (semaphore) {
 				isTimeout = semaphore.release();
 				if (!isTimeout) messages.put(message.getMessageId(), message);
 			}
-			return isTimeout;
+		} catch (RuntimeException e) {
+			logger.error("PutMessage not find semaphore: " + message.getMessageId());
 		} finally {
 //			lock.unlockWrite();
 			removeSemaphore(message);
 		}
+		return isTimeout;
 	}
 	
 	public Message getMessage(String messageId) throws InterruptedException {
 		Message message = null;
 		HandleSemaphore semaphore = getSemaphore(messageId);
-		semaphore.take();
 //		lock.lockRead();
 		try {
-			synchronized (semaphore) {
+			semaphore.take();
+//			synchronized (semaphore) {
 				message = messages.get(messageId);
-			}
-//			if (message != null && isTimeOut(message)) message = null;
-			return message;
+//			}
+		} catch (RuntimeException e) {
+			logger.error("GetMessage not find semaphore: " + messageId);
 		} finally {
 //			lock.unlockRead();
 			if (message != null) messages.remove(messageId);
 		}
+		return message;
 	}
 	
 	public int msgSize() throws InterruptedException {
@@ -105,6 +114,7 @@ public class ReceiveMessages {
 	
 	public void setSemaphore(String messageId) {
 		semaphores.put(messageId, new HandleSemaphore(timeMillis));
+		logger.debug("Set the send semaphore: " + messageId);
 	}
 	
 	private HandleSemaphore getSemaphore(Message message) {
